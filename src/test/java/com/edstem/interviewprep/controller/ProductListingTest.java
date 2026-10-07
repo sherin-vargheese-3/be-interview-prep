@@ -76,6 +76,14 @@ class ProductListingTest extends IntegrationTest {
     }
 
     @Test
+    void pageBeyondAddressableRange_returns400NotServerError() throws Exception {
+      mockMvc
+          .perform(get(PRODUCTS).param("page", "2147483647").param("size", "100"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.errors[0].field").value("page"));
+    }
+
+    @Test
     void totalPages_roundsUp() throws Exception {
       mockMvc
           .perform(get(PRODUCTS).param("size", "7").param("page", "14"))
@@ -252,6 +260,12 @@ class ProductListingTest extends IntegrationTest {
     @Test
     void readsArePublic() throws Exception {
       mockMvc.perform(get(PRODUCTS + "/1")).andExpect(status().isOk());
+    }
+
+    @Test
+    void actuatorIndexIsNotPublic() throws Exception {
+      mockMvc.perform(get("/actuator")).andExpect(status().isUnauthorized());
+      mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }
 
     @Test

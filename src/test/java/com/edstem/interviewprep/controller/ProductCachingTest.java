@@ -79,17 +79,27 @@ class ProductCachingTest extends IntegrationTest {
 
   @Test
   void cacheHitsAreVisibleThroughActuatorMetrics() throws Exception {
-    mockMvc.perform(get(PRODUCTS + "/8")).andExpect(status().isOk());
-    mockMvc.perform(get(PRODUCTS + "/8")).andExpect(status().isOk());
+    double hitsBefore = actuatorCacheHits();
 
-    mockMvc
-        .perform(
-            get("/actuator/metrics/cache.gets")
-                .with(admin())
-                .param("tag", "cache:" + ProductService.PRODUCT_CACHE)
-                .param("tag", "result:hit"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.measurements[0].value").isNumber());
+    mockMvc.perform(get(PRODUCTS + "/8")).andExpect(status().isOk()); // miss, loads
+    mockMvc.perform(get(PRODUCTS + "/8")).andExpect(status().isOk()); // hit
+
+    assertThat(actuatorCacheHits() - hitsBefore).isEqualTo(1.0);
+  }
+
+  private double actuatorCacheHits() throws Exception {
+    String body =
+        mockMvc
+            .perform(
+                get("/actuator/metrics/cache.gets")
+                    .with(admin())
+                    .param("tag", "cache:" + ProductService.PRODUCT_CACHE)
+                    .param("tag", "result:hit"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(body).at("/measurements/0/value").asDouble();
   }
 
   @Test

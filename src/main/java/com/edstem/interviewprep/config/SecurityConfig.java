@@ -55,6 +55,14 @@ public class SecurityConfig {
                     // Q3: register/login are the only ways in
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login")
                     .permitAll()
+                    // Q4: health is public; everything else under /actuator is for ADMINs. Must
+                    // come
+                    // before the short-link rule, whose "/{code}" would otherwise match
+                    // "/actuator".
+                    .requestMatchers("/actuator/health")
+                    .permitAll()
+                    .requestMatchers("/actuator", "/actuator/**")
+                    .hasRole("ADMIN")
                     // Q1 and Q2 are public by their briefs; Q3 must not change their contracts
                     .requestMatchers("/api/v1/tasks", "/api/v1/tasks/**")
                     .permitAll()
@@ -69,11 +77,6 @@ public class SecurityConfig {
                     .permitAll()
                     // Q4: only an ADMIN may change the catalog
                     .requestMatchers("/api/v1/products", "/api/v1/products/**")
-                    .hasRole("ADMIN")
-                    // Q4: health is public; metrics and caches are for ADMINs
-                    .requestMatchers("/actuator/health")
-                    .permitAll()
-                    .requestMatchers("/actuator/**")
                     .hasRole("ADMIN")
                     .requestMatchers("/error")
                     .permitAll()

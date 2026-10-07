@@ -5,6 +5,7 @@ import com.edstem.interviewprep.dto.ProductRequest;
 import com.edstem.interviewprep.dto.ProductResponse;
 import com.edstem.interviewprep.dto.ProductSearchCriteria;
 import com.edstem.interviewprep.enums.ProductSortField;
+import com.edstem.interviewprep.exception.InvalidFieldException;
 import com.edstem.interviewprep.exception.InvalidSortException;
 import com.edstem.interviewprep.exception.ProductNotFoundException;
 import com.edstem.interviewprep.model.Product;
@@ -52,6 +53,9 @@ public class ProductService {
   /** Filtering, sorting and paging all run in the database: one page query plus one count. */
   @Transactional(readOnly = true)
   public PageResponse<ProductResponse> search(ProductSearchCriteria criteria, Pageable pageable) {
+    if (pageable.getOffset() > Integer.MAX_VALUE) {
+      throw new InvalidFieldException("page", "page is too large for the requested size");
+    }
     Pageable safePageable =
         PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), safeSort(pageable));
     return PageResponse.from(
