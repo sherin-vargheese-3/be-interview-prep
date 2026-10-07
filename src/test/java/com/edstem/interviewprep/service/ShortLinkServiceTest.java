@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.edstem.interviewprep.dto.ShortenResult;
 import com.edstem.interviewprep.exception.LinkExpiredException;
 import com.edstem.interviewprep.exception.LinkNotFoundException;
+import com.edstem.interviewprep.model.ShortLink;
 import com.edstem.interviewprep.repository.ShortLinkRepository;
 import com.edstem.interviewprep.support.IntegrationTest;
 import java.security.SecureRandom;
@@ -28,6 +29,7 @@ import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** Service-level tests against the real database. */
@@ -74,6 +76,27 @@ class ShortLinkServiceTest extends IntegrationTest {
 
       assertThat(second.created()).isTrue();
       assertThat(second.link().code()).isNotEqualTo(first.link().code());
+    }
+
+    @Test
+    void sameExpiryWithNanoseconds_stillReturnsExistingLink() {
+      String url = uniqueUrl();
+      Instant expiry = Instant.parse("2030-01-01T00:00:00.123456789Z");
+      ShortenResult first = service.shorten(url, expiry);
+
+      ShortenResult second = service.shorten(url, expiry);
+
+      assertThat(second.created()).isFalse();
+      assertThat(second.link().code()).isEqualTo(first.link().code());
+    }
+
+    @Test
+    void savingATakenCode_failsInsteadOfOverwritingTheLink() {
+      String code = service.shorten(uniqueUrl(), null).link().code();
+
+      assertThatThrownBy(
+              () -> repository.saveAndFlush(new ShortLink(code, "https://evil.example", null, NOW)))
+          .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

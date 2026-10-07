@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -109,6 +110,17 @@ class ShortLinkControllerTest extends IntegrationTest {
           .andExpect(jsonPath("$.url").value(url))
           .andExpect(jsonPath("$.visitCount").value(2))
           .andExpect(jsonPath("$.createdAt").value("2026-10-07T10:00:00Z"));
+    }
+
+    @Test
+    void headRequest_redirectsButIsNotCountedAsAVisit() throws Exception {
+      String code = codeOf(shorten(uniqueUrl(), null));
+
+      mockMvc.perform(head("/" + code)).andExpect(status().isFound());
+
+      mockMvc
+          .perform(get(LINKS + "/" + code + "/stats"))
+          .andExpect(jsonPath("$.visitCount").value(0));
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.edstem.interviewprep.controller;
 import com.edstem.interviewprep.service.ShortLinkService;
 import java.net.URI;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,11 +22,12 @@ public class RedirectController {
   /**
    * 302 + no-store rather than 301: browsers cache a 301 and stop calling us, so later visits would
    * not be counted and an expired link would keep working from cache. The pattern only matches
-   * valid codes, so other paths fall through to a normal 404.
+   * valid codes, so other paths fall through to a normal 404. HEAD (which Spring routes here too)
+   * redirects the same way but isn't counted as a visit.
    */
   @GetMapping("/{code:[0-9A-Za-z]{1,8}}")
-  public ResponseEntity<Void> redirect(@PathVariable String code) {
-    String url = service.visit(code);
+  public ResponseEntity<Void> redirect(@PathVariable String code, HttpMethod method) {
+    String url = HttpMethod.HEAD.equals(method) ? service.resolve(code) : service.visit(code);
     return ResponseEntity.status(HttpStatus.FOUND)
         .location(URI.create(url))
         .cacheControl(CacheControl.noStore())

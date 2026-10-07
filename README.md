@@ -100,5 +100,6 @@ curl -s localhost:8080/api/v1/links/<code>/stats
   visits.
 - **302, not 301,** plus `Cache-Control: no-store`: browsers cache 301s, so repeat visits wouldn't
   be counted and expired links would keep working.
+- `HEAD` requests (link previews, uptime checks) redirect too but aren't counted as visits.
 
 Tests: `ShortLinkServiceTest`, `ShortLinkControllerTest`.

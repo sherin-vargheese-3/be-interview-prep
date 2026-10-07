@@ -9,6 +9,7 @@ import com.edstem.interviewprep.model.ShortLink;
 import com.edstem.interviewprep.repository.ShortLinkRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,20 +44,34 @@ public class ShortLinkService {
    * <p>The lock is held around the whole transaction (TransactionTemplate inside the synchronized
    * method). With {@code @Transactional} on a synchronized method, the lock would be released
    * before the commit and a second request could miss the first one's uncommitted row. This covers
-   * one instance; several instances would need a unique key in the database instead.
+   * one instance; with several instances the reuse rule would need database-level coordination
+   * (e.g. a unique key on the URL and expiry of live links, or a row lock), not a JVM lock.
    */
   public synchronized ShortenResult shorten(String url, Instant expiresAt) {
-    return transaction.execute(tx -> findOrCreate(url, expiresAt));
+    // The database keeps microseconds; compare and store at that precision so a retry with a
+    // nanosecond timestamp matches the stored link instead of creating a duplicate.
+    Instant expiry = expiresAt == null ? null : expiresAt.truncatedTo(ChronoUnit.MICROS);
+    return transaction.execute(tx -> findOrCreate(url, expiry));
   }
 
   /** Resolves a code for redirection and counts the visit atomically in the database. */
   @Transactional
   public String visit(String code) {
+    String url = resolve(code);
+    repository.incrementVisits(code);
+    return url;
+  }
+
+  /**
+   * Resolves a code without counting a visit: for HEAD requests, which link-preview bots and uptime
+   * checkers send and which aren't real visits.
+   */
+  @Transactional(readOnly = true)
+  public String resolve(String code) {
     ShortLink link = repository.findById(code).orElseThrow(() -> new LinkNotFoundException(code));
     if (link.isExpiredAt(Instant.now(clock))) {
       throw new LinkExpiredException(code);
     }
-    repository.incrementVisits(code);
     return link.getUrl();
   }
 
