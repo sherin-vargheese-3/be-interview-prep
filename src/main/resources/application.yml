@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: be-interview-prep
+  # In-memory H2, unique per Spring context (tests can run several contexts side by side).
+  # LOCK_TIMEOUT lets concurrent transactions queue on a busy row instead of failing fast.
+  # For PostgreSQL, set spring.datasource.url/username/password via environment variables.
+  datasource:
+    url: jdbc:h2:mem:prep-${random.uuid};LOCK_TIMEOUT=10000
+    username: sa
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: true
