@@ -19,3 +19,13 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+
+# Secrets come only from the environment; nothing sensitive is committed.
+app:
+  jwt:
+    secret: ${JWT_SECRET:}          # required, >= 32 characters; startup fails otherwise
+    ttl: 15m
+    issuer: be-interview-prep
+  admin:
+    email: ${ADMIN_EMAIL:}          # optional: seeds the first ADMIN when both are set
+    password: ${ADMIN_PASSWORD:}
