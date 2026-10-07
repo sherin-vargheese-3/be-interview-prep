@@ -14,14 +14,32 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Caching rules for single-product lookups (see {@code CacheConfig} for why they can't go stale):
+ *
+ * <ul>
+ *   <li>{@link #get}: read-through, {@code sync = true} so concurrent misses for one id load it
+ *       once, and a concurrent eviction waits for that load to finish.
+ *   <li>{@link #update} / {@link #delete}: evict, applied <b>after</b> the transaction commits.
+ *       Evicting (rather than putting the new value) avoids out-of-order puts from two concurrent
+ *       updates; the next read simply reloads the committed row.
+ * </ul>
+ *
+ * Lists are not cached: the space of filter/sort/page combinations is huge, and they are served by
+ * indexed queries instead.
+ */
 @Service
 public class ProductService {
+
+  public static final String PRODUCT_CACHE = "products";
 
   private final ProductRepository repository;
   private final Clock clock;
@@ -42,7 +60,7 @@ public class ProductService {
             .map(ProductResponse::from));
   }
 
-  @Transactional(readOnly = true)
+  @Cacheable(cacheNames = PRODUCT_CACHE, key = "#id", sync = true)
   public ProductResponse get(long id) {
     return repository
         .findById(id)
@@ -64,6 +82,7 @@ public class ProductService {
   }
 
   @Transactional
+  @CacheEvict(cacheNames = PRODUCT_CACHE, key = "#id")
   public ProductResponse update(long id, ProductRequest request) {
     Product product = repository.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
     product.update(
@@ -76,6 +95,7 @@ public class ProductService {
   }
 
   @Transactional
+  @CacheEvict(cacheNames = PRODUCT_CACHE, key = "#id")
   public void delete(long id) {
     if (!repository.existsById(id)) {
       throw new ProductNotFoundException(id);
