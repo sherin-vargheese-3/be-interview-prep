@@ -20,9 +20,12 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -97,6 +100,64 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(ProductNotFoundException.class)
   ProblemDetail handleProductNotFound(ProductNotFoundException ex) {
     return problem(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", ex.getMessage());
+  }
+
+  @ExceptionHandler(OrderNotFoundException.class)
+  ProblemDetail handleOrderNotFound(OrderNotFoundException ex) {
+    return problem(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", ex.getMessage());
+  }
+
+  /** 409 with the numbers a client needs to react (e.g. lower the quantity). */
+  @ExceptionHandler(InsufficientStockException.class)
+  ProblemDetail handleInsufficientStock(InsufficientStockException ex) {
+    ProblemDetail detail = problem(HttpStatus.CONFLICT, "INSUFFICIENT_STOCK", ex.getMessage());
+    detail.setProperty("productId", ex.getProductId());
+    detail.setProperty("requested", ex.getRequested());
+    detail.setProperty("available", ex.getAvailable());
+    return detail;
+  }
+
+  @ExceptionHandler(IdempotencyKeyInProgressException.class)
+  ProblemDetail handleKeyInProgress(IdempotencyKeyInProgressException ex) {
+    return problem(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_IN_PROGRESS", ex.getMessage());
+  }
+
+  @ExceptionHandler(IdempotencyKeyReusedException.class)
+  ProblemDetail handleKeyReused(IdempotencyKeyReusedException ex) {
+    return problem(HttpStatus.UNPROCESSABLE_ENTITY, "IDEMPOTENCY_KEY_REUSED", ex.getMessage());
+  }
+
+  @ExceptionHandler(InvalidIdempotencyKeyException.class)
+  ProblemDetail handleInvalidKey(InvalidIdempotencyKeyException ex) {
+    return validationProblem(List.of(new FieldError("Idempotency-Key", ex.getMessage())));
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleServletRequestBindingException(
+      ServletRequestBindingException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    if (ex instanceof MissingRequestHeaderException missing) {
+      String header = missing.getHeaderName();
+      return ResponseEntity.badRequest()
+          .body(validationProblem(List.of(new FieldError(header, header + " header is required"))));
+    }
+    return super.handleServletRequestBindingException(ex, headers, status, request);
+  }
+
+  @ExceptionHandler(ProductChangedException.class)
+  ProblemDetail handleProductChanged(ProductChangedException ex) {
+    return problem(HttpStatus.CONFLICT, "PRODUCT_CHANGED", ex.getMessage());
+  }
+
+  /** Two writers raced on the same row; the loser should reload and retry. */
+  @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+  ProblemDetail handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+    return problem(
+        HttpStatus.CONFLICT,
+        "CONCURRENT_UPDATE",
+        "The resource was changed by another request; reload it and retry");
   }
 
   @ExceptionHandler(InvalidSortException.class)

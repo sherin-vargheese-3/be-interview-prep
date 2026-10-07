@@ -12,7 +12,7 @@ in-memory H2 database, JUnit 5, MockMvc and AssertJ.
 | 2 | URL Shortener | [#2](https://github.com/sherin-vargheese-3/be-interview-prep/pull/2) |
 | 3 | Authentication & Roles | [#3](https://github.com/sherin-vargheese-3/be-interview-prep/pull/3) |
 | 4 | Product Catalog | [#4](https://github.com/sherin-vargheese-3/be-interview-prep/pull/4) |
-| 5 | Order Service | |
+| 5 | Order Service | [#5](https://github.com/sherin-vargheese-3/be-interview-prep/pull/5) |
 
 **Video:**
 
@@ -173,3 +173,48 @@ GET /api/v1/products?category=ELECTRONICS&minPrice=50&maxPrice=400&inStock=true&
   and `--logging.level.org.hibernate.SQL=debug` shows one `select` for repeated lookups.
 
 Tests: `ProductListingTest`, `ProductCachingTest`.
+
+## Q5 — Order Service
+
+| Method | Path | Result |
+|---|---|---|
+| `POST` | `/api/v1/orders` + `Idempotency-Key` header | `201` new order; `200` + `Idempotent-Replayed: true` for a retry; `409` insufficient stock |
+| `GET` | `/api/v1/orders/{id}` | the caller's own order (`404` for anyone else's) |
+| `POST` | `/api/v1/orders/{id}/cancel` | `200`, stock returned once |
+
+Orders require a login (Q3); the customer is the token's subject. Items reference Q4 products.
+
+```bash
+curl -X POST localhost:8080/api/v1/orders -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"items":[{"productId":1,"quantity":2},{"productId":3,"quantity":1}]}'
+```
+
+- **No overselling:** each item is reserved with one conditional SQL statement,
+  `UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty`. The check and the
+  decrement are atomic under the row lock. A `CHECK (stock >= 0)` constraint backs it up.
+- **All-or-nothing:** one transaction per order; a shortfall rolls back every reservation. Items
+  are reserved in ascending product id, so concurrent multi-item orders can't deadlock.
+- **Recognising a retry:** the client sends an `Idempotency-Key` (a UUID) per intended order and
+  repeats it on retries. `(customer, key)` is unique in the database. Same key + same request →
+  the original order (`200`); same key + different request → `422`; simultaneous duplicates → the
+  constraint lets one commit, the others return it (or `409 IDEMPOTENCY_KEY_IN_PROGRESS`).
+- **409** body: `"Insufficient stock for product 1 ('Concert Ticket'): requested 3, available 1"`
+  plus `productId`, `requested`, `available`.
+- **Cancel** flips `CONFIRMED → CANCELLED` with a conditional update; only that request releases
+  stock, so cancelling twice (or concurrently) returns it once.
+- Stock changes evict the product from the Q4 cache after commit, so lookups stay fresh.
+- **Admin product edits can't undo reservations:** product responses include `version`, and
+  `PUT /api/v1/products/{id}` must send the version it is based on. Orders bump the version, so an
+  edit based on a stale read gets `409 PRODUCT_CHANGED` instead of overwriting stock.
+
+Tests: `OrderConcurrencyTest` (**50 simultaneous orders for stock 10 → exactly 10 succeed, stock
+0**; **simultaneous retries → one order**), `OrderControllerTest`.
+
+## What I would improve with more time
+
+- Run the tests against PostgreSQL with Testcontainers and compare a second concurrency approach
+  (pessimistic `SELECT ... FOR UPDATE`) for Q5.
+- Refresh tokens and logout (Q3), Redis or event-based invalidation for multi-instance caching
+  (Q4), custom short codes (Q2) and OpenAPI docs (Q1).
+- Liquibase migrations instead of Hibernate `ddl-auto` for a real database.

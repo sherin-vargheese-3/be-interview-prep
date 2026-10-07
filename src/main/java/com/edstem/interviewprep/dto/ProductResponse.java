@@ -16,7 +16,8 @@ public record ProductResponse(
     BigDecimal price,
     int stock,
     BigDecimal rating,
-    Instant createdAt) {
+    Instant createdAt,
+    long version) {
 
   public static ProductResponse from(Product product) {
     return new ProductResponse(
@@ -26,6 +27,7 @@ public record ProductResponse(
         product.getPrice(),
         product.getStock(),
         product.getRating(),
-        product.getCreatedAt());
+        product.getCreatedAt(),
+        product.getVersion());
   }
 }

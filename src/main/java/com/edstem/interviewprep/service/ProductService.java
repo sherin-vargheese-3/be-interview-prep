@@ -7,6 +7,7 @@ import com.edstem.interviewprep.dto.ProductSearchCriteria;
 import com.edstem.interviewprep.enums.ProductSortField;
 import com.edstem.interviewprep.exception.InvalidFieldException;
 import com.edstem.interviewprep.exception.InvalidSortException;
+import com.edstem.interviewprep.exception.ProductChangedException;
 import com.edstem.interviewprep.exception.ProductNotFoundException;
 import com.edstem.interviewprep.model.Product;
 import com.edstem.interviewprep.repository.ProductRepository;
@@ -89,6 +90,13 @@ public class ProductService {
   @CacheEvict(cacheNames = PRODUCT_CACHE, key = "#id")
   public ProductResponse update(long id, ProductRequest request) {
     Product product = repository.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
+    if (request.version() == null) {
+      throw new InvalidFieldException(
+          "version", "version is required to update a product (use the value from GET)");
+    }
+    if (request.version() != product.getVersion()) {
+      throw new ProductChangedException(id, product.getVersion());
+    }
     product.update(
         request.name().strip(),
         request.category(),
