@@ -1,6 +1,7 @@
 package com.edstem.interviewprep.support;
 
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -9,6 +10,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -22,6 +25,17 @@ import org.springframework.test.web.servlet.MockMvc;
 public abstract class IntegrationTest {
 
   protected static final Instant NOW = Instant.parse("2026-10-07T10:00:00Z");
+
+  /** Seeded ADMIN (see AdminBootstrap). The password is random per test run, never committed. */
+  protected static final String ADMIN_EMAIL = "admin@example.com";
+
+  protected static final String ADMIN_PASSWORD = UUID.randomUUID().toString();
+
+  @DynamicPropertySource
+  static void adminAccount(DynamicPropertyRegistry registry) {
+    registry.add("app.admin.email", () -> ADMIN_EMAIL);
+    registry.add("app.admin.password", () -> ADMIN_PASSWORD);
+  }
 
   @TestConfiguration
   static class ClockConfig {

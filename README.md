@@ -10,7 +10,7 @@ in-memory H2 database, JUnit 5, MockMvc and AssertJ.
 |---|---|---|
 | 1 | Task Manager API | [#1](https://github.com/sherin-vargheese-3/be-interview-prep/pull/1) |
 | 2 | URL Shortener | [#2](https://github.com/sherin-vargheese-3/be-interview-prep/pull/2) |
-| 3 | Authentication & Roles | |
+| 3 | Authentication & Roles | [#3](https://github.com/sherin-vargheese-3/be-interview-prep/pull/3) |
 | 4 | Product Catalog | |
 | 5 | Order Service | |
 
@@ -21,8 +21,9 @@ in-memory H2 database, JUnit 5, MockMvc and AssertJ.
 Requires only a JDK 17+; the Maven wrapper downloads Maven.
 
 ```bash
-./mvnw test               # run all tests
-./mvnw spring-boot:run    # start on http://localhost:8080
+./mvnw test                                  # run all tests
+export JWT_SECRET="$(openssl rand -base64 48)"  # required to start the app (see Q3)
+./mvnw spring-boot:run                       # start on http://localhost:8080
 ```
 
 The database is an in-memory H2 created at startup, so no setup is needed and data resets on
@@ -103,3 +104,42 @@ curl -s localhost:8080/api/v1/links/<code>/stats
 - `HEAD` requests (link previews, uptime checks) redirect too but aren't counted as visits.
 
 Tests: `ShortLinkServiceTest`, `ShortLinkControllerTest`.
+
+## Q3 — Authentication & Roles
+
+| Method | Path | Access | Result |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | public | `201` profile (always role `USER`); `409` email taken |
+| `POST` | `/api/v1/auth/login` | public | `200 {accessToken, tokenType, expiresIn: 900, expiresAt}`; `401` bad credentials |
+| `GET` | `/api/v1/users/me` | any logged-in user | `200` own profile |
+| `GET` | `/api/v1/users` | `ADMIN` only | `200` all users; `403` for a `USER` |
+
+```bash
+export JWT_SECRET="$(openssl rand -base64 48)"   # required: the app won't start without it
+export ADMIN_EMAIL=admin@example.com             # optional: seeds the first ADMIN
+export ADMIN_PASSWORD="$(openssl rand -base64 18)"
+./mvnw spring-boot:run
+
+TOKEN=$(curl -s -X POST localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | jq -r .accessToken)
+curl -s localhost:8080/api/v1/users -H "Authorization: Bearer $TOKEN"
+```
+
+- **Stateless:** login returns a signed JWT (HS256) with the user id and role; every request is
+  authenticated from the `Authorization: Bearer` header alone. No session, no cookies.
+- **15-minute expiry:** the token's `exp`; the decoder allows no clock skew.
+- **Passwords:** BCrypt hashes; never returned or logged. Length 8-72 characters and at most 72
+  bytes in UTF-8 (BCrypt's limit).
+- **Email enumeration:** login gives the same `401` for an unknown email and a wrong password, but
+  registration returns `409` for a taken email (standard sign-up UX). In production this would be
+  rate-limited, or replaced by "check your inbox" with an out-of-band email.
+- **Roles:** registration always creates `USER`; the first `ADMIN` comes from `ADMIN_EMAIL` /
+  `ADMIN_PASSWORD`. Rules live in `SecurityConfig` (deny by default; the Q1/Q2 endpoints and
+  short-link redirects stay public as their briefs define).
+- **401 vs 403 as JSON:** no/invalid/expired token → `401`; logged in without the role → `403`;
+  both in the common error format, never an HTML page.
+- **No hard-coded secrets:** only `${JWT_SECRET}` / `${ADMIN_*}` placeholders; tests generate a
+  random secret at runtime.
+
+Tests: `UserControllerTest` (incl. **USER → 403 on the admin endpoint**), `AuthControllerTest`,
+`StartupSecretTest`.

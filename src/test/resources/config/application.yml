@@ -1,0 +1,5 @@
+# Test-only overrides, loaded on top of src/main/resources/application.yml.
+# The JWT secret is generated randomly at startup: nothing secret is committed, even for tests.
+app:
+  jwt:
+    secret: ${random.value}${random.value}
