@@ -4,6 +4,7 @@ import com.edstem.interviewprep.dto.FieldError;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import java.time.LocalDate;
 import java.time.temporal.Temporal;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -43,6 +44,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(InvalidFieldException.class)
   ProblemDetail handleInvalidField(InvalidFieldException ex) {
     return validationProblem(List.of(new FieldError(ex.getField(), ex.getMessage())));
+  }
+
+  @ExceptionHandler(LinkNotFoundException.class)
+  ProblemDetail handleLinkNotFound(LinkNotFoundException ex) {
+    return problem(HttpStatus.NOT_FOUND, "LINK_NOT_FOUND", ex.getMessage());
+  }
+
+  /** 410 Gone: the code existed but is permanently unusable, unlike 404 (never existed). */
+  @ExceptionHandler(LinkExpiredException.class)
+  ProblemDetail handleLinkExpired(LinkExpiredException ex) {
+    return problem(HttpStatus.GONE, "LINK_EXPIRED", ex.getMessage());
   }
 
   @ExceptionHandler(Exception.class)
@@ -159,8 +171,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     if (type == Boolean.class) {
       return "must be true or false";
     }
-    if (Temporal.class.isAssignableFrom(type)) {
+    if (type == LocalDate.class) {
       return "must be a valid date in ISO format (yyyy-MM-dd)";
+    }
+    if (Temporal.class.isAssignableFrom(type)) {
+      return "must be an ISO-8601 timestamp, e.g. 2030-01-01T00:00:00Z";
     }
     if (type == UUID.class) {
       return "must be a valid UUID";
