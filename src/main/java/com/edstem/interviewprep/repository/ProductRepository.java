@@ -14,8 +14,8 @@ public interface ProductRepository
    * Check-and-decrement in one statement. The row lock taken by the UPDATE serialises concurrent
    * orders for the same product, and {@code stock >= :quantity} is evaluated against the latest
    * committed value. Returns 1 if reserved, 0 if there wasn't enough stock. The version bump makes
-   * a concurrent admin edit (which read the old stock) fail its optimistic lock instead of silently
-   * overwriting the reservation.
+   * an admin edit based on a read from before this order fail (409) instead of silently overwriting
+   * the reservation.
    */
   @Modifying(flushAutomatically = true, clearAutomatically = true)
   @Query(

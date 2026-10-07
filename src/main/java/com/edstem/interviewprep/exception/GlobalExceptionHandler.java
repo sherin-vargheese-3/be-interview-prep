@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -143,6 +144,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
           .body(validationProblem(List.of(new FieldError(header, header + " header is required"))));
     }
     return super.handleServletRequestBindingException(ex, headers, status, request);
+  }
+
+  @ExceptionHandler(ProductChangedException.class)
+  ProblemDetail handleProductChanged(ProductChangedException ex) {
+    return problem(HttpStatus.CONFLICT, "PRODUCT_CHANGED", ex.getMessage());
+  }
+
+  /** Two writers raced on the same row; the loser should reload and retry. */
+  @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+  ProblemDetail handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+    return problem(
+        HttpStatus.CONFLICT,
+        "CONCURRENT_UPDATE",
+        "The resource was changed by another request; reload it and retry");
   }
 
   @ExceptionHandler(InvalidSortException.class)

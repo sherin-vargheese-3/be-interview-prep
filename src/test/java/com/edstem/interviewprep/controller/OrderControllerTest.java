@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class OrderControllerTest extends AbstractOrderApiTest {
@@ -101,6 +105,36 @@ class OrderControllerTest extends AbstractOrderApiTest {
     }
 
     @Test
+    void nullItem_returns400NotServerError() throws Exception {
+      mockMvc
+          .perform(
+              post(ORDERS)
+                  .with(as("eve"))
+                  .header("Idempotency-Key", newKey())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"items\": [null]}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.errors[0].field").value("items[0]"))
+          .andExpect(jsonPath("$.errors[0].message").value("items must not contain null"));
+    }
+
+    @Test
+    void adminEditBasedOnStaleRead_cannotUndoReservations() throws Exception {
+      long productId = createProduct(10);
+      long versionSeenByAdmin = productRepository.findById(productId).orElseThrow().getVersion();
+      order(newKey(), "quinn", productId, 3).andExpect(status().isCreated()); // stock 7
+
+      mockMvc
+          .perform(productUpdate(productId, 10, versionSeenByAdmin))
+          .andExpect(status().isConflict())
+          .andExpect(jsonPath("$.code").value("PRODUCT_CHANGED"));
+      assertThat(stockOf(productId)).as("reservation kept, nothing oversold").isEqualTo(7);
+
+      long current = productRepository.findById(productId).orElseThrow().getVersion();
+      mockMvc.perform(productUpdate(productId, 7, current)).andExpect(status().isOk());
+    }
+
+    @Test
     void notLoggedIn_returns401() throws Exception {
       mockMvc
           .perform(
@@ -135,6 +169,18 @@ class OrderControllerTest extends AbstractOrderApiTest {
           .isInstanceOf(DataIntegrityViolationException.class);
       assertThat(stockOf(productId)).isEqualTo(1);
     }
+  }
+
+  private MockHttpServletRequestBuilder productUpdate(long productId, int stock, long version) {
+    return put("/api/v1/products/" + productId)
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(
+            """
+            {"name": "Edited", "category": "HOME", "price": 19.99, "stock": %d,
+             "rating": 4.0, "version": %d}
+            """
+                .formatted(stock, version));
   }
 
   @Nested

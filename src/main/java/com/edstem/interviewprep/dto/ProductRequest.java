@@ -7,10 +7,16 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
-/** Body for create (POST) and full update (PUT). */
+/**
+ * Body for create (POST) and full update (PUT). On update, {@code version} is required: the version
+ * from the GET this edit is based on. Orders change stock (and bump the version) concurrently, so a
+ * full replace based on an older read would otherwise overwrite their reservations. Ignored on
+ * create.
+ */
 public record ProductRequest(
     @NotBlank(message = "name is required")
         @Size(max = 100, message = "name must be at most 100 characters")
@@ -26,4 +32,5 @@ public record ProductRequest(
         @DecimalMin(value = "0.0", message = "rating must be between 0 and 5")
         @DecimalMax(value = "5.0", message = "rating must be between 0 and 5")
         @Digits(integer = 1, fraction = 1, message = "rating must have at most 1 decimal place")
-        BigDecimal rating) {}
+        BigDecimal rating,
+    @PositiveOrZero(message = "version must be zero or more") Long version) {}

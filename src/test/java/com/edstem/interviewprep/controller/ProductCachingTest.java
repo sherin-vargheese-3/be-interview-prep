@@ -189,7 +189,7 @@ class ProductCachingTest extends IntegrationTest {
 
   private static ProductRequest request(String name) {
     return new ProductRequest(
-        name, Category.HOME, new BigDecimal("19.99"), 5, new BigDecimal("4.5"));
+        name, Category.HOME, new BigDecimal("19.99"), 5, new BigDecimal("4.5"), 0L);
   }
 
   private String json(Object value) throws Exception {

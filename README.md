@@ -204,6 +204,9 @@ curl -X POST localhost:8080/api/v1/orders -H "Authorization: Bearer $TOKEN" \
 - **Cancel** flips `CONFIRMED → CANCELLED` with a conditional update; only that request releases
   stock, so cancelling twice (or concurrently) returns it once.
 - Stock changes evict the product from the Q4 cache after commit, so lookups stay fresh.
+- **Admin product edits can't undo reservations:** product responses include `version`, and
+  `PUT /api/v1/products/{id}` must send the version it is based on. Orders bump the version, so an
+  edit based on a stale read gets `409 PRODUCT_CHANGED` instead of overwriting stock.
 
 Tests: `OrderConcurrencyTest` (**50 simultaneous orders for stock 10 → exactly 10 succeed, stock
 0**; **simultaneous retries → one order**), `OrderControllerTest`.
