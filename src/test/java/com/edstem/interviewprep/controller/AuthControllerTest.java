@@ -62,6 +62,15 @@ class AuthControllerTest extends AbstractAuthApiTest {
     }
 
     @Test
+    void passwordOver72BytesInUtf8_returns400NotServerError() throws Exception {
+      register(uniqueEmail(), "é".repeat(60), "Ada")
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.errors[0].field").value("password"))
+          .andExpect(
+              jsonPath("$.errors[0].message").value("password must be at most 72 bytes in UTF-8"));
+    }
+
+    @Test
     void duplicateEmail_caseInsensitive_returns409() throws Exception {
       String email = uniqueEmail();
       register(email, PASSWORD, "Ada").andExpect(status().isCreated());

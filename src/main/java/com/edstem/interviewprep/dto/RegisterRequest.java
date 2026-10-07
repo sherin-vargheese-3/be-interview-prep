@@ -13,6 +13,7 @@ public record RegisterRequest(
     // BCrypt only uses the first 72 bytes, so longer passwords would be silently truncated.
     @NotBlank(message = "password is required")
         @Size(min = 8, max = 72, message = "password must be between 8 and 72 characters")
+        @MaxUtf8Bytes(value = 72, message = "password must be at most 72 bytes in UTF-8")
         String password,
     @NotBlank(message = "name is required")
         @Size(max = 100, message = "name must be at most 100 characters")

@@ -128,7 +128,11 @@ curl -s localhost:8080/api/v1/users -H "Authorization: Bearer $TOKEN"
 - **Stateless:** login returns a signed JWT (HS256) with the user id and role; every request is
   authenticated from the `Authorization: Bearer` header alone. No session, no cookies.
 - **15-minute expiry:** the token's `exp`; the decoder allows no clock skew.
-- **Passwords:** BCrypt hashes; never returned or logged.
+- **Passwords:** BCrypt hashes; never returned or logged. Length 8-72 characters and at most 72
+  bytes in UTF-8 (BCrypt's limit).
+- **Email enumeration:** login gives the same `401` for an unknown email and a wrong password, but
+  registration returns `409` for a taken email (standard sign-up UX). In production this would be
+  rate-limited, or replaced by "check your inbox" with an out-of-band email.
 - **Roles:** registration always creates `USER`; the first `ADMIN` comes from `ADMIN_EMAIL` /
   `ADMIN_PASSWORD`. Rules live in `SecurityConfig` (deny by default; the Q1/Q2 endpoints and
   short-link redirects stay public as their briefs define).

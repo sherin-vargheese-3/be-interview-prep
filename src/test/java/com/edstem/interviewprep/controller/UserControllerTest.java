@@ -2,6 +2,7 @@ package com.edstem.interviewprep.controller;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,6 +44,15 @@ class UserControllerTest extends AbstractAuthApiTest {
           .andExpect(jsonPath("$.status").value(403))
           .andExpect(jsonPath("$.code").value("FORBIDDEN"))
           .andExpect(jsonPath("$.instance").value(ALL_USERS));
+    }
+
+    @Test
+    void user_cannotReachAdminEndpointWithHead() throws Exception {
+      String token = userToken();
+
+      mockMvc
+          .perform(head(ALL_USERS).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+          .andExpect(status().isForbidden());
     }
 
     @Test

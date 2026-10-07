@@ -66,8 +66,9 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/error")
                     .permitAll()
-                    // Q3: only an ADMIN may list all users
-                    .requestMatchers(HttpMethod.GET, "/api/v1/users")
+                    // Q3: only an ADMIN may list all users. No HTTP method on purpose: Spring MVC
+                    // also routes HEAD to the @GetMapping, which a GET-only rule would let through.
+                    .requestMatchers("/api/v1/users")
                     .hasRole("ADMIN")
                     // everything else requires a valid token (deny by default)
                     .anyRequest()
