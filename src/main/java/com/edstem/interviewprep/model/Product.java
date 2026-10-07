@@ -13,10 +13,14 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
+import org.hibernate.annotations.Check;
 
 /**
  * Indexed on the columns used to filter and sort, so listing stays fast as the table grows.
  * (category, price) serves the common "category + price range" query.
+ *
+ * <p>Orders change {@code stock} only through the atomic UPDATEs in {@code ProductRepository}. The
+ * CHECK constraint is the last line of defence: no code path can store a negative stock.
  */
 @Entity
 @Table(
@@ -29,6 +33,7 @@ import java.time.Instant;
       @Index(name = "idx_products_created_at", columnList = "created_at"),
       @Index(name = "idx_products_name", columnList = "name")
     })
+@Check(name = "ck_products_stock_non_negative", constraints = "stock >= 0")
 public class Product {
 
   @Id
