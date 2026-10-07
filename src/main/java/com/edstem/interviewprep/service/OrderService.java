@@ -8,6 +8,7 @@ import com.edstem.interviewprep.exception.IdempotencyKeyInProgressException;
 import com.edstem.interviewprep.exception.IdempotencyKeyReusedException;
 import com.edstem.interviewprep.exception.InsufficientStockException;
 import com.edstem.interviewprep.exception.InvalidIdempotencyKeyException;
+import com.edstem.interviewprep.exception.OrderNotFoundException;
 import com.edstem.interviewprep.exception.ProductNotFoundException;
 import com.edstem.interviewprep.model.Order;
 import com.edstem.interviewprep.model.OrderItem;
@@ -32,6 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -93,6 +95,15 @@ public class OrderService {
           .map(winner -> replay(winner, requestHash))
           .orElseThrow(IdempotencyKeyInProgressException::new);
     }
+  }
+
+  /** Another customer's order is reported as not found, never revealing that it exists. */
+  @Transactional(readOnly = true)
+  public OrderResponse get(String customerId, UUID id) {
+    return orders
+        .findByIdAndCustomerId(id, customerId)
+        .map(OrderResponse::from)
+        .orElseThrow(() -> new OrderNotFoundException(id));
   }
 
   private Order reserveAndSave(

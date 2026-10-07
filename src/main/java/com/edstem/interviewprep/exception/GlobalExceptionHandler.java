@@ -101,6 +101,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return problem(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", ex.getMessage());
   }
 
+  @ExceptionHandler(OrderNotFoundException.class)
+  ProblemDetail handleOrderNotFound(OrderNotFoundException ex) {
+    return problem(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", ex.getMessage());
+  }
+
   /** 409 with the numbers a client needs to react (e.g. lower the quantity). */
   @ExceptionHandler(InsufficientStockException.class)
   ProblemDetail handleInsufficientStock(InsufficientStockException ex) {
