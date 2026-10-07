@@ -11,7 +11,7 @@ in-memory H2 database, JUnit 5, MockMvc and AssertJ.
 | 1 | Task Manager API | [#1](https://github.com/sherin-vargheese-3/be-interview-prep/pull/1) |
 | 2 | URL Shortener | [#2](https://github.com/sherin-vargheese-3/be-interview-prep/pull/2) |
 | 3 | Authentication & Roles | [#3](https://github.com/sherin-vargheese-3/be-interview-prep/pull/3) |
-| 4 | Product Catalog | |
+| 4 | Product Catalog | [#4](https://github.com/sherin-vargheese-3/be-interview-prep/pull/4) |
 | 5 | Order Service | |
 
 **Video:**
@@ -143,3 +143,33 @@ curl -s localhost:8080/api/v1/users -H "Authorization: Bearer $TOKEN"
 
 Tests: `UserControllerTest` (incl. **USER → 403 on the admin endpoint**), `AuthControllerTest`,
 `StartupSecretTest`.
+
+## Q4 — Product Catalog
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| `GET` | `/api/v1/products` | public | paginated list with filters and sorting |
+| `GET` | `/api/v1/products/{id}` | public | cached |
+| `POST` / `PUT` / `DELETE` | `/api/v1/products[/{id}]` | `ADMIN` | update/delete evict the cache entry |
+
+```
+GET /api/v1/products?category=ELECTRONICS&minPrice=50&maxPrice=400&inStock=true&name=monitor
+                    &sort=price,desc&page=0&size=20
+→ { "content": [...], "page": { "number": 0, "size": 20, "totalElements": 7, "totalPages": 1 } }
+```
+
+- **Seed:** 100 products on startup (deterministic).
+- **Pagination:** `size` defaults to 20 and is capped at 100. **Sorting** works on any product
+  field (`id, name, category, price, stock, rating, createdAt`); unknown fields → 400, and `id` is
+  appended as a tie-breaker so paging is stable.
+- **Filters** are optional JPA Specifications AND-ed into one query, so any combination works in a
+  single request; indexes cover the filter/sort columns.
+- **Cache:** Caffeine read-through on `GET /{id}`. Never stale: evictions run **after commit**
+  (transaction-aware cache manager), and loads are atomic per key (`sync = true`), so a reader
+  racing an update can't re-cache the old row.
+- **How we know it doesn't hit the database every time:** `ProductCachingTest` counts real SQL
+  statements with Hibernate statistics (5 lookups → 1 statement); at runtime,
+  `GET /actuator/metrics/cache.gets?tag=cache:products&tag=result:hit` (ADMIN token) shows hits,
+  and `--logging.level.org.hibernate.SQL=debug` shows one `select` for repeated lookups.
+
+Tests: `ProductListingTest`, `ProductCachingTest`.

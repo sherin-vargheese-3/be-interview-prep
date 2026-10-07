@@ -94,6 +94,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         "Authentication is required to access this resource");
   }
 
+  @ExceptionHandler(ProductNotFoundException.class)
+  ProblemDetail handleProductNotFound(ProductNotFoundException ex) {
+    return problem(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", ex.getMessage());
+  }
+
+  @ExceptionHandler(InvalidSortException.class)
+  ProblemDetail handleInvalidSort(InvalidSortException ex) {
+    return validationProblem(List.of(new FieldError("sort", ex.getMessage())));
+  }
+
   @ExceptionHandler(Exception.class)
   ProblemDetail handleUnexpected(Exception ex) {
     log.error("Unexpected error", ex);

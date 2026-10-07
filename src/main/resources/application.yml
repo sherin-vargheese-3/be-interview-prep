@@ -11,6 +11,11 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: create-drop
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100        # larger requested sizes are capped to 100
   jackson:
     deserialization:
       fail-on-unknown-properties: true
@@ -19,6 +24,13 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+
+# Q4: /actuator/metrics/cache.gets?tag=result:hit shows the product cache working at runtime
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,caches
 
 # Secrets come only from the environment; nothing sensitive is committed.
 app:
