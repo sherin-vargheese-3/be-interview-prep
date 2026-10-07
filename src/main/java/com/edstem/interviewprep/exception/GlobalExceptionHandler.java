@@ -94,6 +94,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         "Authentication is required to access this resource");
   }
 
+  @ExceptionHandler(InvalidSortException.class)
+  ProblemDetail handleInvalidSort(InvalidSortException ex) {
+    return validationProblem(List.of(new FieldError("sort", ex.getMessage())));
+  }
+
   @ExceptionHandler(Exception.class)
   ProblemDetail handleUnexpected(Exception ex) {
     log.error("Unexpected error", ex);

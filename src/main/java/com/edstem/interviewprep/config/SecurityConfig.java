@@ -64,6 +64,9 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.HEAD, "/{code}")
                     .permitAll()
+                    // Q4: anyone may browse the catalog
+                    .requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**")
+                    .permitAll()
                     .requestMatchers("/error")
                     .permitAll()
                     // Q3: only an ADMIN may list all users. No HTTP method on purpose: Spring MVC
