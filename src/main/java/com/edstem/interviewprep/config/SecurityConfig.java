@@ -62,6 +62,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/{code}")
                     .permitAll()
+                    .requestMatchers(HttpMethod.HEAD, "/{code}")
+                    .permitAll()
                     .requestMatchers("/error")
                     .permitAll()
                     // Q3: only an ADMIN may list all users
