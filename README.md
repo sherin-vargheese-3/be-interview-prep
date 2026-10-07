@@ -9,7 +9,7 @@ in-memory H2 database, JUnit 5, MockMvc and AssertJ.
 | # | Question | PR link |
 |---|---|---|
 | 1 | Task Manager API | [#1](https://github.com/sherin-vargheese-3/be-interview-prep/pull/1) |
-| 2 | URL Shortener | |
+| 2 | URL Shortener | [#2](https://github.com/sherin-vargheese-3/be-interview-prep/pull/2) |
 | 3 | Authentication & Roles | |
 | 4 | Product Catalog | |
 | 5 | Order Service | |
@@ -74,3 +74,32 @@ curl -i -X POST localhost:8080/api/v1/tasks -H 'Content-Type: application/json' 
 
 `404 TASK_NOT_FOUND` for an unknown task, `500 INTERNAL_ERROR` (generic message, cause logged)
 for anything unexpected. Tests: `TaskControllerTest`.
+
+## Q2 — URL Shortener
+
+| Method | Path | Result |
+|---|---|---|
+| `POST` | `/api/v1/links` `{"url", "expiresAt"?}` | `201` new link / `200` existing live link; body has `code` and `shortUrl` |
+| `GET` | `/{code}` | `302` to the original URL (visit counted); `404` unknown; `410` expired |
+| `GET` | `/api/v1/links/{code}/stats` | `{code, url, visitCount, createdAt, expiresAt}` |
+
+```bash
+curl -s -X POST localhost:8080/api/v1/links -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com/a/very/long/path"}'
+curl -i localhost:8080/<code>
+curl -s localhost:8080/api/v1/links/<code>/stats
+```
+
+- **Same URL twice:** same URL + same expiry while the link is live returns the existing code
+  (`200`), so retries don't create duplicates; a different expiry or an expired link gets a new
+  code (`201`).
+- **Codes:** 7 random base62 characters from `SecureRandom` (URL-safe, unguessable), unique by
+  primary key, retried on collision.
+- **Accurate counts:** each visit is one SQL `UPDATE ... SET visit_count = visit_count + 1`, atomic
+  under the row lock. With a Java read-modify-write the concurrency test counted 584 of 5,000
+  visits.
+- **302, not 301,** plus `Cache-Control: no-store`: browsers cache 301s, so repeat visits wouldn't
+  be counted and expired links would keep working.
+- `HEAD` requests (link previews, uptime checks) redirect too but aren't counted as visits.
+
+Tests: `ShortLinkServiceTest`, `ShortLinkControllerTest`.
