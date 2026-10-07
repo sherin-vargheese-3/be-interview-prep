@@ -3,11 +3,13 @@ package com.edstem.interviewprep.service;
 import com.edstem.interviewprep.dto.TaskRequest;
 import com.edstem.interviewprep.dto.TaskResponse;
 import com.edstem.interviewprep.enums.TaskStatus;
+import com.edstem.interviewprep.exception.InvalidFieldException;
 import com.edstem.interviewprep.exception.TaskNotFoundException;
 import com.edstem.interviewprep.model.Task;
 import com.edstem.interviewprep.repository.TaskRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,7 @@ public class TaskService {
   @Transactional
   public TaskResponse update(UUID id, TaskRequest request) {
     Task task = find(id);
+    rejectNewPastDueDate(task, request.dueDate());
     task.update(
         request.title().strip(),
         request.description(),
@@ -67,6 +70,17 @@ public class TaskService {
   @Transactional
   public void delete(UUID id) {
     repository.delete(find(id));
+  }
+
+  /**
+   * A due date may stay in the past once it has passed (the task is overdue), but it can't be
+   * changed to a date in the past.
+   */
+  private void rejectNewPastDueDate(Task task, LocalDate dueDate) {
+    boolean changed = dueDate != null && !dueDate.equals(task.getDueDate());
+    if (changed && dueDate.isBefore(LocalDate.now(clock))) {
+      throw new InvalidFieldException("dueDate", "dueDate cannot be in the past");
+    }
   }
 
   private Task find(UUID id) {

@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.edstem.interviewprep.support.IntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -143,6 +144,42 @@ class TaskControllerTest extends IntegrationTest {
     }
 
     @Test
+    void overdueTask_canBeUpdatedWithoutMovingItsDueDate() throws Exception {
+      String id = createTaskDue("2026-10-07");
+      clock.advance(Duration.ofDays(2));
+
+      mockMvc
+          .perform(
+              put(TASKS + "/" + id)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      """
+                      {"title": "Late task", "status": "DONE", "dueDate": "2026-10-07"}
+                      """))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.status").value("DONE"))
+          .andExpect(jsonPath("$.dueDate").value("2026-10-07"));
+    }
+
+    @Test
+    void update_toADifferentPastDueDate_returns400() throws Exception {
+      String id = createTaskDue("2026-10-20");
+
+      mockMvc
+          .perform(
+              put(TASKS + "/" + id)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      """
+                      {"title": "Task", "dueDate": "2026-10-01"}
+                      """))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+          .andExpect(jsonPath("$.errors[0].field").value("dueDate"))
+          .andExpect(jsonPath("$.errors[0].message").value("dueDate cannot be in the past"));
+    }
+
+    @Test
     void unknownTask_returns404InSameFormat() throws Exception {
       UUID id = UUID.randomUUID();
 
@@ -207,6 +244,20 @@ class TaskControllerTest extends IntegrationTest {
           .andExpect(status().isBadRequest())
           .andExpect(jsonPath("$.errors[0].field").value("status"));
     }
+  }
+
+  private String createTaskDue(String dueDate) throws Exception {
+    String body =
+        mockMvc
+            .perform(
+                post(TASKS)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\": \"Task\", \"dueDate\": \"%s\"}".formatted(dueDate)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return objectMapper.readTree(body).get("id").asText();
   }
 
   private String createTask(String title, String status) throws Exception {

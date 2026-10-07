@@ -40,6 +40,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return problem(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", ex.getMessage());
   }
 
+  @ExceptionHandler(InvalidFieldException.class)
+  ProblemDetail handleInvalidField(InvalidFieldException ex) {
+    return validationProblem(List.of(new FieldError(ex.getField(), ex.getMessage())));
+  }
+
   @ExceptionHandler(Exception.class)
   ProblemDetail handleUnexpected(Exception ex) {
     log.error("Unexpected error", ex);

@@ -53,7 +53,9 @@ src/main/java/com/edstem/interviewprep
 | `DELETE` | `/api/v1/tasks/{id}` | `204` / `404` |
 
 A task has `title` (required, max 100), `description` (max 1000), `status` (default `TODO`),
-`dueDate` (`yyyy-MM-dd`, not in the past) and `createdAt` (set by the server).
+`dueDate` (`yyyy-MM-dd`, not in the past) and `createdAt` (set by the server). "Today" is the UTC
+date. An overdue task can still be updated (e.g. marked `DONE`) without moving its due date; only
+setting a *new* past due date is rejected.
 
 ```bash
 curl -i -X POST localhost:8080/api/v1/tasks -H 'Content-Type: application/json' \
