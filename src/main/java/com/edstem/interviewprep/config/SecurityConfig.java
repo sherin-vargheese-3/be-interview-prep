@@ -67,6 +67,9 @@ public class SecurityConfig {
                     // Q4: anyone may browse the catalog
                     .requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/**")
                     .permitAll()
+                    // Q4: only an ADMIN may change the catalog
+                    .requestMatchers("/api/v1/products", "/api/v1/products/**")
+                    .hasRole("ADMIN")
                     .requestMatchers("/error")
                     .permitAll()
                     // Q3: only an ADMIN may list all users. No HTTP method on purpose: Spring MVC

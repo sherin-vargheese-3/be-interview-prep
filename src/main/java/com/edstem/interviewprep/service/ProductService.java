@@ -1,12 +1,17 @@
 package com.edstem.interviewprep.service;
 
 import com.edstem.interviewprep.dto.PageResponse;
+import com.edstem.interviewprep.dto.ProductRequest;
 import com.edstem.interviewprep.dto.ProductResponse;
 import com.edstem.interviewprep.dto.ProductSearchCriteria;
 import com.edstem.interviewprep.enums.ProductSortField;
 import com.edstem.interviewprep.exception.InvalidSortException;
+import com.edstem.interviewprep.exception.ProductNotFoundException;
+import com.edstem.interviewprep.model.Product;
 import com.edstem.interviewprep.repository.ProductRepository;
 import com.edstem.interviewprep.repository.ProductSpecifications;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
@@ -19,9 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 
   private final ProductRepository repository;
+  private final Clock clock;
 
-  public ProductService(ProductRepository repository) {
+  public ProductService(ProductRepository repository, Clock clock) {
     this.repository = repository;
+    this.clock = clock;
   }
 
   /** Filtering, sorting and paging all run in the database: one page query plus one count. */
@@ -33,6 +40,47 @@ public class ProductService {
         repository
             .findAll(ProductSpecifications.matching(criteria), safePageable)
             .map(ProductResponse::from));
+  }
+
+  @Transactional(readOnly = true)
+  public ProductResponse get(long id) {
+    return repository
+        .findById(id)
+        .map(ProductResponse::from)
+        .orElseThrow(() -> new ProductNotFoundException(id));
+  }
+
+  @Transactional
+  public ProductResponse create(ProductRequest request) {
+    Product product =
+        new Product(
+            request.name().strip(),
+            request.category(),
+            request.price(),
+            request.stock(),
+            request.rating(),
+            Instant.now(clock));
+    return ProductResponse.from(repository.save(product));
+  }
+
+  @Transactional
+  public ProductResponse update(long id, ProductRequest request) {
+    Product product = repository.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
+    product.update(
+        request.name().strip(),
+        request.category(),
+        request.price(),
+        request.stock(),
+        request.rating());
+    return ProductResponse.from(repository.saveAndFlush(product));
+  }
+
+  @Transactional
+  public void delete(long id) {
+    if (!repository.existsById(id)) {
+      throw new ProductNotFoundException(id);
+    }
+    repository.deleteById(id);
   }
 
   /**
