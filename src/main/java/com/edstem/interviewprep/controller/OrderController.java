@@ -59,4 +59,10 @@ public class OrderController {
   public OrderResponse get(@AuthenticationPrincipal Jwt caller, @PathVariable UUID id) {
     return orderService.get(caller.getSubject(), id);
   }
+
+  /** Idempotent: cancelling twice returns the stock once. */
+  @PostMapping("/{id}/cancel")
+  public OrderResponse cancel(@AuthenticationPrincipal Jwt caller, @PathVariable UUID id) {
+    return orderService.cancel(caller.getSubject(), id);
+  }
 }

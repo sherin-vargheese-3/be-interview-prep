@@ -4,6 +4,7 @@ import com.edstem.interviewprep.dto.OrderItemRequest;
 import com.edstem.interviewprep.dto.OrderRequest;
 import com.edstem.interviewprep.dto.OrderResponse;
 import com.edstem.interviewprep.dto.PlaceOrderResult;
+import com.edstem.interviewprep.enums.OrderStatus;
 import com.edstem.interviewprep.exception.IdempotencyKeyInProgressException;
 import com.edstem.interviewprep.exception.IdempotencyKeyReusedException;
 import com.edstem.interviewprep.exception.InsufficientStockException;
@@ -104,6 +105,28 @@ public class OrderService {
         .findByIdAndCustomerId(id, customerId)
         .map(OrderResponse::from)
         .orElseThrow(() -> new OrderNotFoundException(id));
+  }
+
+  /**
+   * Returns the stock exactly once. The status change is a conditional UPDATE (CONFIRMED to
+   * CANCELLED), so if two cancels race only one changes the row and releases stock. Cancelling an
+   * already-cancelled order is a no-op that returns the order, which makes cancel safe to retry.
+   */
+  @Transactional
+  public OrderResponse cancel(String customerId, UUID id) {
+    Order order =
+        orders
+            .findByIdAndCustomerId(id, customerId)
+            .orElseThrow(() -> new OrderNotFoundException(id));
+    boolean cancelledNow =
+        orders.transition(id, OrderStatus.CONFIRMED, OrderStatus.CANCELLED, Instant.now(clock))
+            == 1;
+    if (cancelledNow) {
+      for (OrderItem item : order.getItems()) {
+        products.releaseStock(item.getProductId(), item.getQuantity());
+      }
+    }
+    return orders.findById(id).map(OrderResponse::from).orElseThrow();
   }
 
   private Order reserveAndSave(
