@@ -20,6 +20,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -55,6 +57,41 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(LinkExpiredException.class)
   ProblemDetail handleLinkExpired(LinkExpiredException ex) {
     return problem(HttpStatus.GONE, "LINK_EXPIRED", ex.getMessage());
+  }
+
+  @ExceptionHandler(UserNotFoundException.class)
+  ProblemDetail handleUserNotFound(UserNotFoundException ex) {
+    return problem(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex.getMessage());
+  }
+
+  @ExceptionHandler(EmailAlreadyRegisteredException.class)
+  ProblemDetail handleDuplicateEmail(EmailAlreadyRegisteredException ex) {
+    return problem(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED", ex.getMessage());
+  }
+
+  @ExceptionHandler(InvalidCredentialsException.class)
+  ResponseEntity<ProblemDetail> handleBadCredentials(InvalidCredentialsException ex) {
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+        .body(problem(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", ex.getMessage()));
+  }
+
+  /**
+   * Security exceptions raised inside a controller (e.g. a future {@code @PreAuthorize}) reach MVC
+   * first; without these they would fall into the 500 handler below.
+   */
+  @ExceptionHandler(AccessDeniedException.class)
+  ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+    return problem(
+        HttpStatus.FORBIDDEN, "FORBIDDEN", "You do not have permission to access this resource");
+  }
+
+  @ExceptionHandler(AuthenticationException.class)
+  ProblemDetail handleAuthentication(AuthenticationException ex) {
+    return problem(
+        HttpStatus.UNAUTHORIZED,
+        "UNAUTHENTICATED",
+        "Authentication is required to access this resource");
   }
 
   @ExceptionHandler(Exception.class)
