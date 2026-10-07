@@ -70,6 +70,11 @@ public class SecurityConfig {
                     // Q4: only an ADMIN may change the catalog
                     .requestMatchers("/api/v1/products", "/api/v1/products/**")
                     .hasRole("ADMIN")
+                    // Q4: health is public; metrics and caches are for ADMINs
+                    .requestMatchers("/actuator/health")
+                    .permitAll()
+                    .requestMatchers("/actuator/**")
+                    .hasRole("ADMIN")
                     .requestMatchers("/error")
                     .permitAll()
                     // Q3: only an ADMIN may list all users. No HTTP method on purpose: Spring MVC

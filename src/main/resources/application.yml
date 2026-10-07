@@ -25,6 +25,13 @@ spring:
     problemdetails:
       enabled: true
 
+# Q4: /actuator/metrics/cache.gets?tag=result:hit shows the product cache working at runtime
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,caches
+
 # Secrets come only from the environment; nothing sensitive is committed.
 app:
   jwt:
