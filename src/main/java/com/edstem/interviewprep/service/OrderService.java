@@ -32,6 +32,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,16 +62,19 @@ public class OrderService {
   private final OrderRepository orders;
   private final ProductRepository products;
   private final TransactionTemplate transaction;
+  private final CacheManager cacheManager;
   private final Clock clock;
 
   public OrderService(
       OrderRepository orders,
       ProductRepository products,
       TransactionTemplate transaction,
+      CacheManager cacheManager,
       Clock clock) {
     this.orders = orders;
     this.products = products;
     this.transaction = transaction;
+    this.cacheManager = cacheManager;
     this.clock = clock;
   }
 
@@ -124,6 +129,7 @@ public class OrderService {
     if (cancelledNow) {
       for (OrderItem item : order.getItems()) {
         products.releaseStock(item.getProductId(), item.getQuantity());
+        evictCachedProduct(item.getProductId());
       }
     }
     return orders.findById(id).map(OrderResponse::from).orElseThrow();
@@ -156,8 +162,21 @@ public class OrderService {
         throw new InsufficientStockException(
             line.getKey(), known.get(line.getKey()).getName(), line.getValue(), available);
       }
+      evictCachedProduct(line.getKey());
     }
     return order;
+  }
+
+  /**
+   * Stock is part of the cached product (Q4), so a change must evict it. The cache manager is
+   * transaction-aware: the eviction runs only after this transaction commits, and not at all if it
+   * rolls back (stock unchanged).
+   */
+  private void evictCachedProduct(long productId) {
+    Cache cache = cacheManager.getCache(ProductService.PRODUCT_CACHE);
+    if (cache != null) {
+      cache.evict(productId);
+    }
   }
 
   private static PlaceOrderResult replay(Order order, String requestHash) {
