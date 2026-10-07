@@ -12,7 +12,7 @@ in-memory H2 database, JUnit 5, MockMvc and AssertJ.
 | 2 | URL Shortener | [#2](https://github.com/sherin-vargheese-3/be-interview-prep/pull/2) |
 | 3 | Authentication & Roles | [#3](https://github.com/sherin-vargheese-3/be-interview-prep/pull/3) |
 | 4 | Product Catalog | [#4](https://github.com/sherin-vargheese-3/be-interview-prep/pull/4) |
-| 5 | Order Service | |
+| 5 | Order Service | [#5](https://github.com/sherin-vargheese-3/be-interview-prep/pull/5) |
 
 **Video:**
 
